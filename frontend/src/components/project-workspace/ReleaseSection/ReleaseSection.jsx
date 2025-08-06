@@ -598,6 +598,9 @@ const ReleaseSection = ({ projectId, datasetId }) => {
         const createdRelease = await response.json();
         console.log('Release created successfully:', JSON.stringify(createdRelease, null, 2));
         
+        // Log the model_path from the response
+        console.log('Model path from response:', createdRelease.model_path);
+        
         // Show success message
         message.success('Release created successfully! Starting export...');
         
@@ -609,11 +612,21 @@ const ReleaseSection = ({ projectId, datasetId }) => {
           export_format: releaseConfig.exportFormat,
           final_image_count: releaseConfig.multiplier * (selectedDatasets[0]?.image_count || 0),
           created_at: new Date().toISOString(),
-          model_path: `/releases/${createdRelease.release_id}/${releaseConfig.name}.${releaseConfig.exportFormat}.zip`
+          model_path: createdRelease.model_path || `/api/v1/releases/${createdRelease.release_id}/download`
         };
+        
+        console.log('Opening download modal with release:', releaseForModal);
         
         // Open download modal in export mode
         setDownloadModal({
+          isOpen: true,
+          release: releaseForModal,
+          isExporting: true,
+          exportProgress: { percentage: 0, step: 'initializing' }
+        });
+        
+        // Log the current state of the download modal
+        console.log('Download modal state after setting:', {
           isOpen: true,
           release: releaseForModal,
           isExporting: true,

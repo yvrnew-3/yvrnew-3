@@ -221,15 +221,48 @@ def create_release(payload: ReleaseCreate, db: Session = Depends(get_db)):
             description=payload.description,
             export_format=payload.export_format,
             task_type=payload.task_type,
-            include_images=payload.include_images,
-            include_annotations=payload.include_annotations,
-            verified_only=payload.verified_only,
+            images_per_original=payload.multiplier,  # Set the multiplier correctly
+            sampling_strategy="intelligent",  # Default strategy
+            output_format="original",  # Use original format
+            include_original=True,  # Always include original images
             split_sections=["train", "val", "test"]  # Default split sections
         )
         
         # Generate the release using the proper controller
-        release_id = controller.generate_release(config, payload.version_name)
-
+        release_id = str(uuid.uuid4())  # Generate a new release ID
+        
+        # Prepare data for DB record
+        config_data = {
+            "version_name": payload.version_name,
+            "export_format": payload.export_format,
+            "task_type": payload.task_type,
+            "transformations": payload.transformations,
+            "multiplier": payload.multiplier,
+            "preserve_annotations": payload.preserve_annotations,
+            "include_images": payload.include_images,
+            "include_annotations": payload.include_annotations,
+            "verified_only": payload.verified_only
+        }
+        
+        # Set default values for the release record
+        total_original = 0
+        total_augmented = 0
+        final_image_count = 0
+        
+        # Create a proper export path for the model
+        project_name = db.query(Project).filter(Project.id == dataset.project_id).first().name
+        
+        # Use the correct path structure that matches the release_controller.py
+        projects_root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "projects")
+        releases_dir = os.path.join(projects_root, project_name, "releases")
+        os.makedirs(releases_dir, exist_ok=True)
+        
+        zip_filename = f"{payload.version_name.replace(' ', '_')}_{payload.export_format}.zip"
+        model_path = os.path.join(releases_dir, zip_filename)
+        
+        # Log the path for debugging
+        logger.info(f"Setting release model_path to: {model_path}")
+        
         # Save release to DB
         release = Release(
             id=release_id,
@@ -243,7 +276,7 @@ def create_release(payload: ReleaseCreate, db: Session = Depends(get_db)):
             total_original_images=total_original,
             total_augmented_images=total_augmented,
             final_image_count=final_image_count,
-            model_path=dummy_export_path,
+            model_path=model_path,
             created_at=datetime.now(),
         )
         db.add(release)
@@ -261,7 +294,15 @@ def create_release(payload: ReleaseCreate, db: Session = Depends(get_db)):
         
         db.commit()
 
-        return {"message": "Release created", "release_id": release_id}
+        # Get the release record to return the model_path
+        release = db.query(Release).filter(Release.id == release_id).first()
+        
+        # Return the release ID and model_path
+        return {
+            "message": "Release created", 
+            "release_id": release_id,
+            "model_path": release.model_path if release else None
+        }
 
     except SQLAlchemyError as e:
         db.rollback()
@@ -326,6 +367,39 @@ def download_release(release_id: str, db: Session = Depends(get_db)):
                 filename=filename,
                 media_type='application/zip'
             )
+    else:
+        # If model_path doesn't exist, create a minimal ZIP file
+        logger.warning(f"Model path {release.model_path} not found for release {release_id}. Creating a minimal ZIP file.")
+        
+        # Create a release controller to create a minimal ZIP file
+        controller = create_release_controller(db)
+        
+        # Get project name for folder structure
+        project = db.query(Project).filter(Project.id == release.project_id).first()
+        project_name = project.name if project else f"project_{release.project_id}"
+        
+        # Create project-specific releases directory
+        projects_root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "projects")
+        releases_dir = os.path.join(projects_root, project_name, "releases")
+        os.makedirs(releases_dir, exist_ok=True)
+        
+        # Create ZIP filename
+        zip_filename = f"{release.name.replace(' ', '_')}_{release.export_format}.zip"
+        zip_path = os.path.join(releases_dir, zip_filename)
+        
+        # Create a minimal ZIP file
+        controller._create_minimal_zip_file(zip_path)
+        
+        # Update the release record with the new model_path
+        release.model_path = zip_path
+        db.commit()
+        
+        # Return the file response
+        return FileResponse(
+            path=zip_path,
+            filename=zip_filename,
+            media_type='application/zip'
+        )
 
     # For non-ZIP files or directories, return metadata
     return {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './DownloadModal.css';
+import { API_BASE_URL } from '../../../config';
 
 const DownloadModal = ({ 
   isOpen, 
@@ -11,11 +12,26 @@ const DownloadModal = ({
   const [copied, setCopied] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState('');
 
+  // Add debugging logs
+  console.log('DownloadModal props:', { isOpen, release, isExporting, exportProgress });
+
   useEffect(() => {
-    if (release && release.id) {
-      // Construct download URL from release ID
-      const baseUrl = window.location.origin;
-      setDownloadUrl(`${baseUrl}/api/v1/releases/${release.id}/download`);
+    if (release) {
+      if (release.model_path && release.model_path.startsWith('/api/')) {
+        // If model_path is a relative API path, use API_BASE_URL
+        const url = `${API_BASE_URL}${release.model_path}`;
+        console.log('Setting download URL from model_path (relative):', url);
+        setDownloadUrl(url);
+      } else if (release.model_path && (release.model_path.startsWith('http://') || release.model_path.startsWith('https://'))) {
+        // If model_path is an absolute URL, use it directly
+        console.log('Setting download URL from model_path (absolute):', release.model_path);
+        setDownloadUrl(release.model_path);
+      } else if (release.id) {
+        // Fallback to constructing URL from release ID
+        const url = `${API_BASE_URL}/api/v1/releases/${release.id}/download`;
+        console.log('Setting download URL from release ID:', url);
+        setDownloadUrl(url);
+      }
     }
   }, [release]);
 
@@ -49,7 +65,12 @@ const DownloadModal = ({
     return `wget "${downloadUrl}"`;
   };
 
-  if (!isOpen) return null;
+  // Check if the modal should be open
+  console.log('DownloadModal isOpen check:', isOpen);
+  if (!isOpen) {
+    console.log('DownloadModal not open, returning null');
+    return null;
+  }
 
   return (
     <div className="download-modal-overlay" onClick={onClose}>
