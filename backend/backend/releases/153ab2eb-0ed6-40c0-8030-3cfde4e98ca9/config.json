@@ -1,0 +1,44 @@
+{
+    "version_name": "version_auto_2025_08_06_09_14",
+    "dataset_id": "1c62d270-2df3-4568-986d-0cff06cd7e7d",
+    "description": "",
+    "transformations": [
+        {
+            "id": "5508cd11-0f8e-4e21-a253-08b89bd922c1",
+            "name": "brightness",
+            "description": "brightness transformation",
+            "config": {
+                "brightness": {
+                    "percentage": 20,
+                    "enabled": true
+                }
+            },
+            "enabled": true,
+            "createdAt": "2025-08-06T09:14:54",
+            "updatedAt": "2025-08-06T09:14:54",
+            "dbId": "5508cd11-0f8e-4e21-a253-08b89bd922c1"
+        },
+        {
+            "id": "4904c5e2-b96b-4428-b542-dcf8b3c590c8",
+            "name": "contrast",
+            "description": "contrast transformation",
+            "config": {
+                "contrast": {
+                    "percentage": 20,
+                    "enabled": true
+                }
+            },
+            "enabled": true,
+            "createdAt": "2025-08-06T09:16:01",
+            "updatedAt": "2025-08-06T09:16:01",
+            "dbId": "4904c5e2-b96b-4428-b542-dcf8b3c590c8"
+        }
+    ],
+    "multiplier": 2,
+    "preserve_annotations": true,
+    "export_format": "yolo_detection",
+    "task_type": "object_detection",
+    "include_images": true,
+    "include_annotations": true,
+    "verified_only": false
+}
